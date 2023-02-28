@@ -6,6 +6,19 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <arpa/inet.h>
+
+#define RESP_SIMPLE_STRING '+'
+#define RESP_ERROR '-'
+#define RESP_INTEGER ':'
+#define RESP_BULK_STRING '$'
+#define RESP_ARRAY '*'
+
+void send_resp_string(int client_fd, const char *msg) {
+    char resp[1024];
+    snprintf(resp, sizeof(resp), "%c%s\r\n", RESP_SIMPLE_STRING, msg);
+    send(client_fd, resp, strlen(resp), 0);
+}
 
 int main() {
 	// Disable output buffering
@@ -13,7 +26,7 @@ int main() {
 
 	printf("Logs from your program will appear here!\n");
 	
-	int server_fd, client_addr_len;
+	int server_fd, client_fd, client_addr_len;
 	struct sockaddr_in client_addr;
 	
 	server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -47,9 +60,20 @@ int main() {
 	printf("Waiting for a client to connect...\n");
 	client_addr_len = sizeof(client_addr);
 	
-	accept(server_fd, (struct sockaddr *) &client_addr, &client_addr_len);
+	client_fd = accept(server_fd, (struct sockaddr *) &client_addr, &client_addr_len);
 	printf("Client connected\n");
+
+	char buf[1024];
+	int len = recv(client_fd, buf, sizeof(buf), 0);
+	if (len == -1) {
+		printf("Recv failed: %s \n", strerror(errno));
+		return 1;
+	}
+	buf[len] = '\0';
+
+	send_resp_string(client_fd, "PONG");
 	
+	close(client_fd);
 	close(server_fd);
 
 	return 0;
