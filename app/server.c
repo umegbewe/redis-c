@@ -72,8 +72,9 @@ int main() {
 		} else if (len == 0) {
 			break;
 		}
-		buf[len] = '\0';
 
+		buf[len] = '\0';
+		
 		send_resp_string(client_fd, "PONG");
 	}
 	close(client_fd);
