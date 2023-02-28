@@ -63,16 +63,19 @@ int main() {
 	client_fd = accept(server_fd, (struct sockaddr *) &client_addr, &client_addr_len);
 	printf("Client connected\n");
 
-	char buf[1024];
-	int len = recv(client_fd, buf, sizeof(buf), 0);
-	if (len == -1) {
-		printf("Recv failed: %s \n", strerror(errno));
-		return 1;
-	}
-	buf[len] = '\0';
+	for (;;) {
+		char buf[1024];
+		int len = recv(client_fd, buf, sizeof(buf), 0);
+		if (len == -1) {
+			printf("Recv failed: %s \n", strerror(errno));
+			return 1;
+		} else if (len == 0) {
+			break;
+		}
+		buf[len] = '\0';
 
-	send_resp_string(client_fd, "PONG");
-	
+		send_resp_string(client_fd, "PONG");
+	}
 	close(client_fd);
 	close(server_fd);
 
