@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #define RESP_SIMPLE_STRING '+'
 #define RESP_ERROR '-'
@@ -19,6 +20,26 @@ void send_resp_string(int client_fd, const char *msg) {
     snprintf(resp, sizeof(resp), "%c%s\r\n", RESP_SIMPLE_STRING, msg);
     send(client_fd, resp, strlen(resp), 0);
 }
+
+void *client_handler(void *arg) {
+	int client_fd = *(int *)arg;
+
+	for (;;) {
+		char buf[1024];
+		int len = recv(client_fd, buf, sizeof(buf), 0);
+		if (len <= 0) {
+			printf("client %d disconnected\n", client_fd);
+			break;
+		}
+		
+		buf[len] = '\0';
+
+		send_resp_string(client_fd, "PONG");
+	}
+	close (client_fd);
+	pthread_exit(NULL);
+}
+
 
 int main() {
 	// Disable output buffering
@@ -57,28 +78,18 @@ int main() {
 		return 1;
 	}
 	
-	printf("Waiting for a client to connect...\n");
-	client_addr_len = sizeof(client_addr);
-	
-	client_fd = accept(server_fd, (struct sockaddr *) &client_addr, &client_addr_len);
-	printf("Client connected\n");
 
 	for (;;) {
-		char buf[1024];
-		int len = recv(client_fd, buf, sizeof(buf), 0);
-		if (len == -1) {
-			printf("Recv failed: %s \n", strerror(errno));
+		client_fd = accept(server_fd, (struct sockaddr *) &client_addr, &client_addr_len);
+		printf("Client connected\n");
+
+		pthread_t tid;
+		if (pthread_create(&tid, NULL, client_handler, &client_fd) != 0) {
+			printf("Thread creation failed: %s \n", strerror(errno));
 			return 1;
-		} else if (len == 0) {
-			break;
 		}
-
-		buf[len] = '\0';
-		
-		send_resp_string(client_fd, "PONG");
+		pthread_detach(tid);
 	}
-	close(client_fd);
 	close(server_fd);
-
 	return 0;
 }
